@@ -1,6 +1,10 @@
 import numpy as np
 from abc import ABC, abstractmethod
-from interfaces import LearningRateSchedule, AbstractOptimizer, LinearRegressionInterface
+from interfaces import (
+    LearningRateSchedule,
+    AbstractOptimizer,
+    LinearRegressionInterface,
+)
 
 
 # ===== Learning Rate Schedules =====
@@ -23,7 +27,8 @@ class TimeDecayLR(LearningRateSchedule):
         returns: float, learning rate для iteration шага обучения
         """
         # TODO: реализовать формулу затухающего шага обучения
-        raise NotImplementedError()
+        new_lr = self.lambda_ * (self.s0 / (self.s0 + iteration)) ** self.p
+        return new_lr
 
 
 # ===== Base Optimizer =====
@@ -33,11 +38,13 @@ class BaseDescent(AbstractOptimizer, ABC):
     Ответственен только за имплементацию общего алгоритма спуска.
     Все его составные части (learning rate, loss function+regularization) находятся вне зоны ответственности этого класса (см. Single Responsibility Principle).
     """
-    def __init__(self, 
-                 lr_schedule: LearningRateSchedule = TimeDecayLR(), 
-                 tolerance: float = 1e-6,
-                 max_iter: int = 1000
-                ):
+
+    def __init__(
+        self,
+        lr_schedule: LearningRateSchedule = TimeDecayLR(),
+        tolerance: float = 1e-6,
+        max_iter: int = 1000,
+    ):
         self.lr_schedule = lr_schedule
         self.tolerance = tolerance
         self.max_iter = max_iter
@@ -69,9 +76,25 @@ class BaseDescent(AbstractOptimizer, ABC):
         """
         Оркестрирует весь алгоритм градиентного спуска.
         """
-        ...
         # TODO: implement
         # в конце также приcваивает атрибуту модели полученный loss_history
+        X, y = self.model.X_train, self.model.y_train
+
+        for _ in range(self.max_iter):
+            # loss before current step
+            self.model.loss_history.append(self.model.compute_loss(X, y))
+
+            # update weights and get w_{k+1} - w_k
+            delta_w = self._step()
+
+            if np.any(np.isnan(delta_w)):
+                break
+
+            if np.linalg.norm(delta_w) ** 2 < self.tolerance:
+                break
+
+        # loss after the optimization
+        self.model.loss_history.append(self.model.compute_loss(X, y))
 
 
 # ===== Specific Optimizers =====
@@ -113,14 +136,14 @@ class SAGDescent(BaseDescent):
 
         if self.grad_memory is None:
             ...
-            # TODO: инициализировать хранилища при первом вызове 
+            # TODO: инициализировать хранилища при первом вызове
 
         # TODO: реализовать SAG
         raise NotImplementedError()
 
 
 class MomentumDescent(BaseDescent):
-    def __init__(self,  *args, beta=0.9, **kwargs):
+    def __init__(self, *args, beta=0.9, **kwargs):
         super().__init__(*args, **kwargs)
         self.beta = beta
         self.velocity = None
@@ -147,15 +170,18 @@ class Adam(BaseDescent):
 # ===== Non-iterative Algorithms ====
 class AnalyticSolutionOptimizer(AbstractOptimizer):
     """
-    Универсальный дамми-класс для вызова аналитических решений 
+    Универсальный дамми-класс для вызова аналитических решений
     """
+
     def __init__(self):
         self.model = None
-    
 
     def optimize(self) -> None:
         """
         Определяет аналитическое решение и назначает его весам модели.
         """
         # не должна содержать непосредственных формул аналитического решения, за него ответственен другой объект
-        ...
+        X = self.model.X_train
+        y = self.model.y_train
+
+        self.model.w = self.model.loss_function.analytic_solution(X, y)

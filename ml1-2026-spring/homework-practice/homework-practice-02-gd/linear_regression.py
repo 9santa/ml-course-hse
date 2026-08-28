@@ -1,73 +1,79 @@
-import numpy as np 
-from interfaces import LossFunction, LossFunctionClosedFormMixin, LinearRegressionInterface, AbstractOptimizer
+import numpy as np
+from interfaces import (
+    LossFunction,
+    LossFunctionClosedFormMixin,
+    LinearRegressionInterface,
+    AbstractOptimizer,
+)
 from descents import AnalyticSolutionOptimizer
 from typing import Dict, Type, Optional, Callable
 from abc import abstractmethod, ABC
 
 
-
 class MSELoss(LossFunction, LossFunctionClosedFormMixin):
-
-    def __init__(self, analytic_solution_func: Callable[[np.ndarray, np.ndarray], np.ndarray] = None):
+    def __init__(
+        self,
+        analytic_solution_func: Callable[[np.ndarray, np.ndarray], np.ndarray] = None,
+    ):
 
         if analytic_solution_func is None:
             self.analytic_solution_func = self._plain_analytic_solution
         else:
             self.analytic_solution_func = analytic_solution_func
 
-        
-
     def loss(self, X: np.ndarray, y: np.ndarray, w: np.ndarray) -> float:
         """
-        X: np.ndarray, матрица регрессоров 
+        X: np.ndarray, матрица регрессоров
         y: np.ndarray, вектор таргета
         w: np.ndarray, вектор весов
 
         returns: float, значение MSE на данных X,y для весов w
         """
-        raise NotImplementedError()
-        # TODO: implement
+        return np.mean((X @ w - y) ** 2)
 
     def gradient(self, X: np.ndarray, y: np.ndarray, w: np.ndarray) -> np.ndarray:
         """
-        X: np.ndarray, матрица регрессоров 
+        X: np.ndarray, матрица регрессоров
         y: np.ndarray, вектор таргета
         w: np.ndarray, вектор весов
 
         returns: np.ndarray, численный градиент MSE в точке w
         """
-        raise NotImplementedError()
-        # TODO: implement
+        n = y.shape[0]
+        error = X @ w - y
+        grad = (2.0 / n) * (X.T @ error)
+        return grad
 
     def analytic_solution(self, X: np.ndarray, y: np.ndarray) -> np.ndarray:
         """
         Возвращает решение по явной формуле (closed-form solution)
 
-        X: np.ndarray, матрица регрессоров 
+        X: np.ndarray, матрица регрессоров
         y: np.ndarray, вектор таргета
 
         returns: np.ndarray, оптимальный по MSE вектор весов, вычисленный при помощи аналитического решения для данных X, y
         """
         # Функция-диспатчер в одну из истинных функций для вычисления решения по явной формуле (closed-form)
-        # Необходима в связи c наличием интерфейса analytic_solution у любого лосса; 
+        # Необходима в связи c наличием интерфейса analytic_solution у любого лосса;
         # self-injection даёт возможность выбирать, какое именно closed-form решение использовать
         return self.analytic_solution_func(X, y)
-        
-    
+
     @classmethod
     def _plain_analytic_solution(cls, X: np.ndarray, y: np.ndarray) -> np.ndarray:
         """
-        X: np.ndarray, матрица регрессоров 
+        X: np.ndarray, матрица регрессоров
         y: np.ndarray, вектор таргета
 
         returns: np.ndarray, вектор весов, вычисленный при помощи классического аналитического решения
         """
-        raise NotImplementedError()
-    
+        xTx_inv = np.linalg.inv(X.T @ X)
+        w_new = xTx_inv @ X.T @ y
+        return w_new
+
     @classmethod
     def _svd_analytic_solution(cls, X: np.ndarray, y: np.ndarray) -> np.ndarray:
         """
-        X: np.ndarray, матрица регрессоров 
+        X: np.ndarray, матрица регрессоров
         y: np.ndarray, вектор таргета
 
         returns: np.ndarray, вектор весов, вычисленный при помощи аналитического решения на SVD
@@ -76,15 +82,17 @@ class MSELoss(LossFunction, LossFunctionClosedFormMixin):
 
 
 class L2Regularization(LossFunction):
-
-    def __init__(self, core_loss: LossFunction, mu_rate: float = 1.0,
-                 analytic_solution_func: Callable[[np.ndarray, np.ndarray], np.ndarray] = None):
+    def __init__(
+        self,
+        core_loss: LossFunction,
+        mu_rate: float = 1.0,
+        analytic_solution_func: Callable[[np.ndarray, np.ndarray], np.ndarray] = None,
+    ):
         self.core_loss = core_loss
         self.mu_rate = mu_rate
 
-        # analytic_solution_func is meant to be passed separately, 
+        # analytic_solution_func is meant to be passed separately,
         # as it is not linear to core solution
-    
 
     def gradient(self, X: np.ndarray, y: np.ndarray, w: np.ndarray) -> np.ndarray:
 
@@ -96,13 +104,12 @@ class L2Regularization(LossFunction):
         # TODO: implement
 
 
-
 class CustomLinearRegression(LinearRegressionInterface):
     def __init__(
         self,
         optimizer: AbstractOptimizer,
         # l2_coef: float = 0.0,
-        loss_function: LossFunction = MSELoss()
+        loss_function: LossFunction = MSELoss(),
     ):
         self.optimizer = optimizer
         self.optimizer.set_model(self)
@@ -113,39 +120,52 @@ class CustomLinearRegression(LinearRegressionInterface):
         self.w = None
         self.X_train = None
         self.y_train = None
-        
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         """
-        returns: np.ndarray, вектор \hat{y}
+        returns: np.ndarray, вектор yhat
         """
-        # TODO: реализовать функцию предсказания в линейной регрессии
-        raise NotImplementedError("predict function is not implemented")
+        return X @ self.w
 
-    def compute_gradients(self, X_batch: np.ndarray | None = None, y_batch: np.ndarray | None = None) -> np.ndarray:
+    def compute_gradients(
+        self, X_batch: np.ndarray | None = None, y_batch: np.ndarray | None = None
+    ) -> np.ndarray:
         """
         returns: np.ndarray, градиент функции потерь при текущих весах (self.w)
         Если переданы аргументы, то градиент вычисляется по ним, иначе - по self.X_train и self.y_train
         """
-        raise NotImplementedError("Gradient caclucation is not implemented")
+        if X_batch is None:
+            X_batch = self.X_train
+        if y_batch is None:
+            y_batch = self.y_train
 
+        return self.loss_function.gradient(X_batch, y_batch, self.w)
 
-    def compute_loss(self, X_batch: np.ndarray | None = None, y_batch: np.ndarray | None = None) -> float:
+    def compute_loss(
+        self, X_batch: np.ndarray | None = None, y_batch: np.ndarray | None = None
+    ) -> float:
         """
         returns: np.ndarray, значение функции потерь при текущих весах (self.w) по self.X_train, self.y_train
         Если переданы аргументы, то градиент вычисляется по ним, иначе - по self.X_train и self.y_train
         """
-        raise NotImplementedError("Loss calculation is not implemented")
+        if X_batch is None:
+            X_batch = self.X_train
+        if y_batch is None:
+            y_batch = self.y_train
 
+        return self.loss_function.loss(X_batch, y_batch, self.w)
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> None:
         """
         Инициирует обучение модели заданным функцией потерь и оптимизатором способом.
-        
-        X: np.ndarray, 
+
+        X: np.ndarray,
         y: np.ndarray
         """
         # TODO: реализовать обучение модели
         self.X_train, self.y_train = X, y
 
-        raise NotImplementedError("Linear Regression training is not implemented")
+        n_features = X.shape[1]
+        self.w = np.zeros(n_features)
+
+        self.optimizer.optimize()
