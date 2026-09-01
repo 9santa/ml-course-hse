@@ -102,10 +102,14 @@ class VanillaGradientDescent(BaseDescent):
     def _update_weights(self) -> np.ndarray:
         # TODO: реализовать vanilla градиентный спуск
         # Можно использовать атрибуты класса self.model
-        X_train = self.model.X_train
-        y_train = self.model.y_train
-        # gradient = ...
-        raise NotImplementedError()
+        grad = self.model.compute_gradients()
+
+        lr = self.lr_schedule.get_lr(self.iteration)
+
+        delta_w = -lr * grad
+        self.model.w += delta_w
+
+        return delta_w
 
 
 class StochasticGradientDescent(BaseDescent):
@@ -118,7 +122,21 @@ class StochasticGradientDescent(BaseDescent):
         # 1) выбрать случайный батч
         # 2) вычислить градиенты на батче
         # 3) обновить веса модели
-        raise NotImplementedError()
+        n_samples = self.model.X_train.shape[0]
+
+        assert n_samples >= self.batch_size
+        batch_indices = np.random.choice(n_samples, size=self.batch_size, replace=False)
+        X_batch = self.model.X_train[batch_indices, :]
+        y_batch = self.model.y_train[batch_indices]
+
+        grad = self.model.compute_gradients(X_batch, y_batch)
+
+        lr = self.lr_schedule.get_lr(self.iteration)
+
+        delta_w = -lr * grad
+        self.model.w += delta_w
+
+        return delta_w
 
 
 class SAGDescent(BaseDescent):
@@ -135,11 +153,34 @@ class SAGDescent(BaseDescent):
         num_objects, num_features = X_train.shape
 
         if self.grad_memory is None:
-            ...
             # TODO: инициализировать хранилища при первом вызове
+            self.grad_memory = np.zeros((num_objects, num_features))
+            self.grad_sum = np.zeros(num_features)
 
-        # TODO: реализовать SAG
-        raise NotImplementedError()
+        assert num_objects >= self.batch_size
+        batch_indices = np.random.choice(
+            num_objects, size=self.batch_size, replace=False
+        )
+
+        for idx in batch_indices:
+            X_i = X_train[idx : idx + 1]
+            y_i = y_train[idx : idx + 1]
+
+            new_grad = self.model.compute_gradients(X_i, y_i)
+
+            self.grad_sum -= self.grad_memory[idx]
+            self.grad_sum += new_grad
+
+            self.grad_memory[idx] = new_grad
+
+        avg_grad = self.grad_sum / num_objects
+
+        lr = self.lr_schedule.get_lr(self.iteration)
+
+        delta_w = -lr * avg_grad
+        self.model.w += delta_w
+
+        return delta_w
 
 
 class MomentumDescent(BaseDescent):
@@ -150,7 +191,24 @@ class MomentumDescent(BaseDescent):
 
     def _update_weights(self) -> np.ndarray:
         # TODO: реализовать градиентный спуск с моментумом
-        raise NotImplementedError()
+
+        if self.velocity is None:
+            self.velocity = np.zeros_like(self.model.w)
+
+        X_train = self.model.X_train
+        y_train = self.model.y_train
+
+        new_grad = self.model.compute_gradients(X_train, y_train)
+        lr = self.lr_schedule.get_lr(self.iteration)
+
+        new_velocity = self.beta * self.velocity + lr * new_grad
+
+        delta_w = -new_velocity
+        self.model.w += delta_w
+
+        self.velocity = new_velocity
+
+        return delta_w
 
 
 class Adam(BaseDescent):
@@ -164,7 +222,32 @@ class Adam(BaseDescent):
 
     def _update_weights(self) -> np.ndarray:
         # TODO: реализовать Adam по формуле из ноутбука
-        raise NotImplementedError()
+        X_train = self.model.X_train
+        y_train = self.model.y_train
+
+        if self.m is None or self.v is None:
+            self.m = 0
+            self.v = 0
+
+        t = self.iteration + 1  # +1 because Adam's uses 1-index iterations
+        grad = self.model.compute_gradients(X_train, y_train)
+        lr = self.lr_schedule.get_lr(self.iteration)
+
+        new_m = self.beta1 * self.m + (1 - self.beta1) * grad
+
+        new_v = self.beta2 * self.v + (1 - self.beta2) * (grad**2)
+
+        norm_m = new_m / (1 - self.beta1**t)
+        norm_v = new_v / (1 - self.beta2**t)
+
+        delta_w = -(lr / (np.sqrt(norm_v) + self.eps)) * norm_m
+
+        self.model.w += delta_w
+
+        self.m = new_m
+        self.v = new_v
+
+        return delta_w
 
 
 # ===== Non-iterative Algorithms ====

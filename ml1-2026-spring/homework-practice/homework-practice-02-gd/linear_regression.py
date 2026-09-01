@@ -78,7 +78,16 @@ class MSELoss(LossFunction, LossFunctionClosedFormMixin):
 
         returns: np.ndarray, вектор весов, вычисленный при помощи аналитического решения на SVD
         """
-        raise NotImplementedError()
+        U, s, Vt = np.linalg.svd(X, full_matrices=False)
+
+        # Threshold for small singular values
+        atol = np.finfo(float).eps * max(X.shape) * np.max(s)
+        s_inv = np.zeros_like(s)
+        s_inv[s > atol] = 1.0 / s[s > atol]
+
+        # w_new = V @ diag(s_inv) @ U.T @ y
+        w_new = Vt.T @ (s_inv * (U.T @ y))
+        return w_new
 
 
 class L2Regularization(LossFunction):
