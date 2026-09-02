@@ -226,8 +226,8 @@ class Adam(BaseDescent):
         y_train = self.model.y_train
 
         if self.m is None or self.v is None:
-            self.m = 0
-            self.v = 0
+            self.m = np.zeros_like(self.model.w)
+            self.v = np.zeros_like(self.model.w)
 
         t = self.iteration + 1  # +1 because Adam's uses 1-index iterations
         grad = self.model.compute_gradients(X_train, y_train)
@@ -240,7 +240,7 @@ class Adam(BaseDescent):
         norm_m = new_m / (1 - self.beta1**t)
         norm_v = new_v / (1 - self.beta2**t)
 
-        delta_w = -(lr / (np.sqrt(norm_v) + self.eps)) * norm_m
+        delta_w = -lr * norm_m / (np.sqrt(norm_v) + self.eps)
 
         self.model.w += delta_w
 
