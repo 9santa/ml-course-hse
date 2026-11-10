@@ -22,7 +22,67 @@ def find_best_split(feature_vector, target_vector):
     """
     # ╰( ͡° ͜ʖ ͡° )つ──☆*:・ﾟ
 
-    pass
+    x = np.asarray(feature_vector, dtype=float)
+    y = np.asarray(target_vector)
+
+    # Convert labels to 0 and 1
+    y = (y == np.unique(y)[-1]).astype(int)
+
+    order = np.argsort(x)
+    x_sorted = x[order]
+    y_sorted = y[order]
+
+    n = len(x_sorted)
+
+    # Find positions of possible thresholds,
+    # i.e. where the neighboring elements differ
+    split_indices = np.where(
+        x_sorted[:-1] != x_sorted[1:]
+    )[0] + 1
+
+    if len(split_indices) == 0:
+        return np.array([]), np.array([]), None, None
+
+    # Thresholds - mean of two different neighboring values
+    thresholds = (
+        x_sorted[split_indices - 1] + x_sorted[split_indices]
+    ) / 2
+
+    assert len(thresholds) == len(split_indices)
+
+    # Кол-во объектов слева с справа для каждого порога
+    n_left = split_indices
+    n_right = n - split_indices
+
+    cumsum = np.cumsum(y_sorted)
+
+    # Кол-во объектов положительного класса слева и справа
+    positive_left = cumsum[split_indices - 1]
+    positive_right = cumsum[-1] - positive_left
+
+    # Доли класса 1 (for all thresholds)
+    p_left = positive_left / n_left
+    p_right = positive_right / n_right
+    p_total = cumsum[-1] / n
+
+    # Gini heterogeneity (for all thresholds)
+    gini_left = 1 - (p_left ** 2 + (1 - p_left) ** 2)
+    gini_right = 1 - (p_right ** 2 + (1 - p_right) ** 2)
+    gini_total = 1 - (p_total ** 2 + (1 - p_total) ** 2)
+
+    # Gini criterion (for all thresholds)
+    ginis = (
+        -1 * (n_left / n) * gini_left
+        - (n_right / n) * gini_right
+    )
+
+    # Лучший порог - макисмальный прирост
+    best_idx = np.argmax(ginis)
+
+    best_threshold = thresholds[best_idx]
+    best_gini = ginis[best_idx]
+
+    return thresholds, ginis, best_threshold, best_gini
 
 
 class DecisionTree:
