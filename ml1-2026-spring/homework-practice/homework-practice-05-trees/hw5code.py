@@ -65,7 +65,7 @@ def find_best_split(feature_vector, target_vector):
     p_right = positive_right / n_right
     p_total = cumsum[-1] / n
 
-    # Gini heterogeneity (for all thresholds)
+    # Gini impurity (for all thresholds)
     gini_left = 1 - (p_left ** 2 + (1 - p_left) ** 2)
     gini_right = 1 - (p_right ** 2 + (1 - p_right) ** 2)
     gini_total = 1 - (p_total ** 2 + (1 - p_total) ** 2)
