@@ -253,6 +253,8 @@ class DecisionTree:
         self._fit_node(X, y_encoded, self._tree)
 
     def predict(self, X):
+        X = np.asarray(X)
+
         predicted = []
 
         for x in X:
