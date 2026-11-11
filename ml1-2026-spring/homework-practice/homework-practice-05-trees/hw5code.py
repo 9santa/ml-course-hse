@@ -241,6 +241,9 @@ class DecisionTree:
 
 
     def fit(self, X, y):
+        X = np.asarray(X)
+        y = np.asarray(y)
+
         # fix 3: convert string target labels to 0s and 1s
         self._classes, y_encoded = np.unique(y, return_inverse=True)
 
