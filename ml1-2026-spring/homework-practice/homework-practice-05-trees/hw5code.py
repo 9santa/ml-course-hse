@@ -236,7 +236,6 @@ class DecisionTree:
             return self._predict_node(x, node=node["right_child"])
 
 
-
     def fit(self, X, y):
         # fix 3: convert string target labels to 0s and 1s
         self._classes, y_encoded = np.unique(y, return_inverse=True)
