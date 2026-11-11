@@ -214,8 +214,28 @@ class DecisionTree:
         self._fit_node(sub_X[~split], sub_y[~split], node["right_child"], depth + 1)
 
     def _predict_node(self, x, node):
-        # ╰( ͡° ͜ʖ ͡° )つ──☆*:・ﾟ
-        pass
+
+        if node["type"] == "terminal":
+            return node["class"]
+
+        feature = node["feature_split"]
+        feature_type = self._feature_types[feature]
+
+        if feature_type == "real":
+            go_left = x[feature] < node["threshold"]
+
+        elif feature_type == "categorical":
+            go_left = x[feature] in node["categories_split"]
+
+        else:
+            raise ValueError("Unknown feature type")
+
+        if go_left:
+            return self._predict_node(x, node=node["left_child"])
+        else:
+            return self._predict_node(x, node=node["right_child"])
+
+
 
     def fit(self, X, y):
         # fix 3: convert string target labels to 0s and 1s
