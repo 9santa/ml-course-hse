@@ -240,7 +240,7 @@ class DecisionTree:
         # fix 3: convert string target labels to 0s and 1s
         self._classes, y_encoded = np.unique(y, return_inverse=True)
 
-        if len(self._classes != 2):
+        if len(self._classes) != 2:
             raise ValueError("The tree supports binary classification. `y` contains more than 2 classes.")
 
         self._fit_node(X, y_encoded, self._tree)
