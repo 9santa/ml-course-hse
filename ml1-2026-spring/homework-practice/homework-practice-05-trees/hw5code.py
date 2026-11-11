@@ -171,7 +171,11 @@ class DecisionTree:
 
 
             # _, _, threshold, gini = find_best_split(feature_vector, sub_y)
-            thresholds, ginis, best_threshold, best_gini = find_best_split(feature_vector, sub_y)
+            thresholds, ginis, best_threshold, best_gini = find_best_split(
+                feature_vector,
+                sub_y,
+                min_samples_leaf=self._min_samples_leaf or 1,
+            )
 
             if len(thresholds) == 0:
                 # Этот признак нельзя использовать для разбиения, нет возможных порогов
@@ -247,6 +251,8 @@ class DecisionTree:
 
     def predict(self, X):
         predicted = []
+
         for x in X:
             predicted.append(self._predict_node(x, self._tree))
-        return np.array(predicted)
+
+        return self._classes[np.array(predicted, dtype=int)]
